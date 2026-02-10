@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MovieLover Premium App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root { --tg-theme-bg: #0f0f0f; --tg-theme-text: white; --main-blue: #0088cc; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--tg-theme-bg); color: var(--tg-theme-text); margin: 0; padding: 10px; padding-bottom: 80px; }
+        
+        /* ইউজার প্রোফাইল */
+        .user-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding: 12px; background: #1e1e1e; border-radius: 12px; border: 1px solid #333; }
+        .user-avatar { width: 45px; height: 45px; border-radius: 50%; background: var(--main-blue); background-size: cover; border: 2px solid var(--main-blue); }
+        
+        /* ভিডিও কার্ড */
+        .video-card { background: #1e1e1e; border-radius: 15px; overflow: hidden; border: 1px solid #333; margin-bottom: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        .thumbnail { width: 100%; height: 210px; object-fit: cover; }
+        .details { padding: 15px; }
+        .title { font-size: 1.2rem; font-weight: bold; margin-bottom: 12px; color: #00acee; }
+
+        /* ইন্টারঅ্যাকশন বার */
+        .interaction-bar { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+        .btn-action { background: #333; color: white; border: none; padding: 8px 14px; border-radius: 20px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px; transition: 0.2s; }
+        .liked { background: #e50914 !important; }
+        .share-btn { background: #25d366 !important; } 
+
+        .play-btn { background: #e50914; color: white; border: none; padding: 14px; width: 100%; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 16px; box-shadow: 0 4px 15px rgba(229, 9, 20, 0.4); }
+
+        /* কমেন্ট সেকশন */
+        .comment-box { margin-top: 15px; display: none; background: #262626; padding: 12px; border-radius: 10px; border: 1px solid #333; }
+        .comment-input-area { display: flex; gap: 8px; margin-bottom: 10px; }
+        .comment-input { flex: 1; padding: 10px; border-radius: 8px; border: none; background: #3d3d3d; color: white; outline: none; }
+        .comment-list { max-height: 150px; overflow-y: auto; font-size: 13px; border-top: 1px solid #333; padding-top: 10px; }
+        .comment-item { margin-bottom: 8px; line-height: 1.4; }
+        .user-name { color: var(--main-blue); font-weight: bold; }
+
+        /* টেলিগ্রাম ফ্লোটিং বাটন */
+        .telegram-float { position: fixed; width: 55px; height: 55px; bottom: 20px; right: 20px; background-color: #0088cc; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.4); z-index: 1000; transition: 0.3s; text-decoration: none; }
+        .telegram-float img { width: 30px; height: 30px; }
+        .telegram-float:hover { transform: scale(1.1); }
+    </style>
+</head>
+<body>
+
+    <div class="user-header">
+        <div id="userPhoto" class="user-avatar"></div>
+        <div>
+            <div id="userName" style="font-weight: bold;">Loading...</div>
+            <div style="font-size: 11px; color: #aaa;">Verified Movie Lover</div>
+        </div>
+    </div>
+
+    <div class="video-card">
+        <img src="https://via.placeholder.com/400x225/111/eee?text=Movie+Poster" class="thumbnail" id="movieThumb">
+        
+        <div class="details">
+            <div class="title" id="movieTitle">Pushpa 2: The Rule (2025)</div>
+            
+            <div class="interaction-bar">
+                <button class="btn-action" onclick="handleLike(this)">❤️ <span id="likeCount">452</span></button>
+                <button class="btn-action share-btn" onclick="shareApp()">📤 Share</button>
+                <button class="btn-action" onclick="toggleComments()">💬 Comments</button>
+            </div>
+
+            <button class="play-btn" onclick="startAdSequence('YOUR_VIDEO_URL_HERE')">▶ UNLOCK & WATCH</button>
+
+            <div id="commentBox" class="comment-box">
+                <div class="comment-input-area">
+                    <input type="text" id="cInput" class="comment-input" placeholder="মুভিটি কেমন লাগলো বলুন...">
+                    <button onclick="postComment()" style="background:var(--main-blue); color:white; border:none; border-radius:8px; padding:0 15px; cursor:pointer;">Send</button>
+                </div>
+                <div id="cList" class="comment-list">
+                    <div class="comment-item"><span class="user-name">Admin:</span> আমাদের অ্যাপে স্বাগতম! ৩টি অ্যাড দেখে ভিডিওটি এনজয় করুন।</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <a href="https://t.me/YourChannelUsername" class="telegram-float" target="_blank">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg" alt="Telegram">
+    </a>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.ready();
+
+        // ১. ইউজারের নাম ও ছবি লোড করা
+        const user = tg.initDataUnsafe?.user;
+        if (user) {
+            document.getElementById('userName').innerText = user.first_name + (user.last_name ? " " + user.last_name : "");
+            if (user.photo_url) {
+                document.getElementById('userPhoto').style.backgroundImage = `url('${user.photo_url}')`;
+            }
+        }
+
+        // ২. অ্যাড সিস্টেম (৩টি অ্যাড দেখার লজিক)
+        let adsSeen = 0;
+        function startAdSequence(videoUrl) {
+            const monetagLink = "YOUR_MONETAG_DIRECT_LINK_HERE"; // আপনার মনিট্যাগ লিঙ্ক দিন
+            
+            if (adsSeen < 3) {
+                window.open(monetagLink, "_blank");
+                adsSeen++;
+                tg.showAlert(`অ্যাড ${adsSeen}/3 লোড হয়েছে। ভিডিওটি দেখতে আর ${3 - adsSeen}টি অ্যাড দেখুন।`);
+            } else {
+                tg.showConfirm("সবগুলো অ্যাড দেখা শেষ! আপনি কি এখন মুভিটি প্লে করতে চান?", (ok) => {
+                    if (ok) window.location.href = videoUrl;
+                });
+                adsSeen = 0; // রিসেট
+            }
+        }
+
+        // ৩. শেয়ার ফাংশন (WhatsApp, Messenger etc.)
+        function shareApp() {
+            const shareText = "দোস্ত, এই টেলিগ্রাম অ্যাপে দারুন সব মুভি ফ্রি-তে দেখা যাচ্ছে! ট্রাই করে দেখ।";
+            const shareUrl = "https://t.me/YourBotUsername/app"; // আপনার বটের লিঙ্ক দিন
+
+            if (navigator.share) {
+                navigator.share({
+                    title: 'MovieLover App',
+                    text: shareText,
+                    url: shareUrl
+                });
+            } else {
+                tg.showAlert("লিঙ্কটি কপি করে বন্ধুদের পাঠান: " + shareUrl);
+            }
+        }
+
+        // ৪. লাইক সিস্টেম
+        function handleLike(btn) {
+            btn.classList.toggle('liked');
+            let countSpan = document.getElementById('likeCount');
+            let currentCount = parseInt(countSpan.innerText);
+            countSpan.innerText = btn.classList.contains('liked') ? currentCount + 1 : currentCount - 1;
+        }
+
+        // ৫. কমেন্ট সিস্টেম
+        function toggleComments() {
+            let box = document.getElementById('commentBox');
+            box.style.display = box.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function postComment() {
+            let input = document.getElementById('cInput');
+            if (input.value.trim()) {
+                let item = document.createElement('div');
+                item.className = 'comment-item';
+                item.innerHTML = `<span class="user-name">${user ? user.first_name : 'Guest'}:</span> ${input.value}`;
+                document.getElementById('cList').prepend(item);
+                input.value = "";
+            }
+        }
+    </script>
+</body>
+</html>
